@@ -58,11 +58,15 @@ fn parse_args() -> Config {
             }
             "--iterations" => {
                 i += 1;
-                cfg.iterations = args[i].parse().expect("invalid --iterations");
+                cfg.iterations = args[i]
+                    .parse()
+                    .expect("Failed to parse --iterations: expected a positive integer");
             }
             "--warmup" => {
                 i += 1;
-                cfg.warmup = args[i].parse().expect("invalid --warmup");
+                cfg.warmup = args[i]
+                    .parse()
+                    .expect("Failed to parse --warmup: expected a positive integer");
             }
             _ => {}
         }
