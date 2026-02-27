@@ -91,6 +91,7 @@ cargo run -p grift --features repl
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- System architecture, arena design, GC, TCO
 - [LANGUAGE.md](LANGUAGE.md) -- Language reference: types, primitives, evaluation rules
 - [INTERNALS.md](INTERNALS.md) -- Contributor guide: module structure, adding builtins
+- [ROADMAP.md](ROADMAP.md) -- Planned features, documentation, tooling, and analysis
 
 ## License
 
