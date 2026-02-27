@@ -377,7 +377,7 @@ impl<const N: usize> Lisp<N> {
                                 Ok(Some(self.apply_combiner(inner, evaled_args, *env)?))
                             }
                             Value::StdLib(stdlib) => {
-                                let real = self.eval_stdlib_source(stdlib)?;
+                                let real = self.eval_stdlib_source(stdlib, inner)?;
                                 let (body, op_env) =
                                     self.invoke_operative(real, evaled_args, *env)?;
                                 *env = op_env;
@@ -416,7 +416,7 @@ impl<const N: usize> Lisp<N> {
             Value::Builtin(id) => self.apply_builtin_pure(id, evaled_args),
             Value::Applicative(inner) => self.apply_combiner(inner, evaled_args, caller_env),
             Value::StdLib(stdlib) => {
-                let real = self.eval_stdlib_source(stdlib)?;
+                let real = self.eval_stdlib_source(stdlib, combiner)?;
                 let (body, op_env) = self.invoke_operative(real, evaled_args, caller_env)?;
                 self.eval_expr(body, op_env)
             }
@@ -444,16 +444,26 @@ impl<const N: usize> Lisp<N> {
 
     /// Parse a stdlib lambda source and evaluate it to get the underlying operative.
     ///
-    /// Called on demand each time a `StdLib` function is invoked.
-    /// The source is a lambda expression (e.g. `(lambda (x) (+ x 1))`)
-    /// which evaluates to an Applicative(Operative). We unwrap to get
-    /// the inner Operative for direct invocation.
-    fn eval_stdlib_source(&self, stdlib: crate::stdlib::StdLib) -> ArenaResult<ArenaIndex> {
+    /// On first invocation the source is parsed and evaluated; the resulting
+    /// operative value is then written back into `stdlib_slot` so that
+    /// subsequent calls find a `Value::Operative` directly and skip the
+    /// parse-and-eval step entirely.
+    fn eval_stdlib_source(
+        &self,
+        stdlib: crate::stdlib::StdLib,
+        stdlib_slot: ArenaIndex,
+    ) -> ArenaResult<ArenaIndex> {
         let mut src = SliceSource::new(stdlib.source());
         let lambda_expr = self.parse_expr(&mut src)?;
         let app = self.eval_expr(lambda_expr, ArenaIndex::GLOBAL_ENV)?;
         // lambda returns Applicative(Operative) — unwrap to get the operative
-        self.unwrap_applicative(app)
+        let real = self.unwrap_applicative(app)?;
+        // Cache: replace the StdLib value with the compiled operative so
+        // future calls dispatch directly without re-parsing.
+        if let Ok(operative_val) = self.get(real) {
+            let _ = self.arena.set(stdlib_slot, operative_val);
+        }
+        Ok(real)
     }
 
     /// Recursively match a formal parameter tree `ptree` against a value `obj`
